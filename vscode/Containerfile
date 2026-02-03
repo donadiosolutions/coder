@@ -1,6 +1,7 @@
 ARG UBUNTU_VERSION=24.04
 FROM ubuntu:${UBUNTU_VERSION}
 
+ARG UBUNTU_VERSION
 ARG DEBIAN_FRONTEND=noninteractive
 ARG VSCODE_CLI_VERSION=1.108.2
 
@@ -87,9 +88,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       vim \
   && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 -s /bin/bash coder \
-  && echo "coder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/coder \
-  && chmod 0440 /etc/sudoers.d/coder
+RUN set -eux; \
+  if id -u coder >/dev/null 2>&1; then \
+    true; \
+  elif getent passwd 1000 >/dev/null 2>&1; then \
+    old_user="$(getent passwd 1000 | cut -d: -f1)"; \
+    old_group="$(getent group 1000 | cut -d: -f1 || true)"; \
+    if [ -n "${old_group}" ] && [ "${old_group}" != "coder" ]; then groupmod -n coder "${old_group}"; fi; \
+    if [ "${old_user}" != "coder" ]; then usermod -l coder "${old_user}"; fi; \
+    usermod -d /home/coder -m coder; \
+  else \
+    useradd -m -u 1000 -s /bin/bash coder; \
+  fi; \
+  echo "coder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/coder; \
+  chmod 0440 /etc/sudoers.d/coder
 
 RUN mkdir -p /home/coder/workspace \
   && mkdir -p /home/coder/.ssh \

@@ -77,53 +77,20 @@ jobs:
               `Timed out waiting for build.yml to complete for ${tag}@${expectedSha}`,
             );
 
-      - name: Find helm-chart artifact
-        id: find_artifact
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          RUN_ID: ${{ steps.wait_build.outputs.run_id }}
-        with:
-          script: |
-            const run_id = Number(process.env.RUN_ID || "");
-            if (!run_id) {
-              throw new Error("Missing RUN_ID from wait_build step output.");
-            }
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner,
-              repo,
-              run_id,
-              per_page: 100,
-            });
-
-            const artifacts = data.artifacts || [];
-            const artifact = artifacts.find((a) => a.name === "helm-chart");
-            if (!artifact) {
-              throw new Error(`helm-chart artifact not found for run_id=${run_id}`);
-            }
-
-            core.setOutput("artifact_id", String(artifact.id));
-
       - name: Download helm-chart artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: helm-chart
+          path: .
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.wait_build.outputs.run_id }}
+          merge-multiple: true
+
+      - name: Validate chart files
         shell: bash
-        env:
-          ARTIFACT_ID: ${{ steps.find_artifact.outputs.artifact_id }}
         run: |
           set -euo pipefail
-
-          url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
-
-          curl -fsSL \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            -o helm-chart.zip \
-            "${url}"
-
-          unzip -q helm-chart.zip
-
           test -d dist
           ls -1 dist/*.tgz >/dev/null
           ls -1 dist/*.spdx.json >/dev/null

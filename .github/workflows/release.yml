@@ -70,7 +70,8 @@ jobs:
             const tag = "${{ inputs.tag }}";
 
             const pagesUrl = `https://${owner}.github.io/${repo}`;
-            const image = `ghcr.io/${owner}/gpubox:${tag}`;
+            const imageGhcr = `ghcr.io/${owner}/gpubox:${tag}`;
+            const imageDockerHub = `docker.io/bcdonadio/gpubox:${tag}`;
 
             const { data } = await github.rest.repos.generateReleaseNotes({
               owner,
@@ -94,9 +95,10 @@ jobs:
               "  --create-namespace",
               "```",
               "",
-              "Container image:",
+              "Container images:",
               "",
-              `\`${image}\``,
+              `- \`${imageGhcr}\``,
+              `- \`${imageDockerHub}\``,
               "",
               "## Release notes",
               "",

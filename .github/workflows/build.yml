@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   container-image:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -34,8 +34,8 @@ jobs:
           echo "repo_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >>"$GITHUB_OUTPUT"
           echo "docs_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}#readme" >>"$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -58,15 +58,13 @@ jobs:
 
       - name: Build image (no push)
         if: github.event_name == 'pull_request'
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./vscode
           file: ./vscode/Containerfile
           platforms: linux/amd64
           push: false
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           build-args: |
             OCI_AUTHORS=Bernardo Donadio <bernardo@donadio.solutions>
             OCI_VENDOR=Donadio Solutions
@@ -78,15 +76,13 @@ jobs:
 
       - name: Build and push image (SBOM + provenance)
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./vscode
           file: ./vscode/Containerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           sbom: true
           provenance: mode=max
           build-args: |
@@ -99,7 +95,7 @@ jobs:
             OCI_CREATED=${{ steps.vars.outputs.created }}
 
   helm-chart:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       contents: write
       id-token: write

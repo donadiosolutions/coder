@@ -140,7 +140,7 @@ spec:
         {{- end }}
       containers:
         - name: {{ include "gpubox.name" . }}
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ include "gpubox.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.command }}
           command:

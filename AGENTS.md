@@ -60,9 +60,11 @@ This is safe and idempotent because the workflow updates existing releases.
 
 ## Version bump checklist
 
+- Chart release version:
+  - Keep `charts/gpubox/Chart.yaml:version` aligned with release tag and image tag (`vX.Y.Z`).
 - VS Code CLI:
   - Update `VSCODE_CLI_VERSION` and `VSCODE_CLI_SHA256` in `vscode/Containerfile`.
-  - Keep `charts/gpubox/Chart.yaml:appVersion` aligned with the image versioning scheme.
+  - Keep `charts/gpubox/Chart.yaml:appVersion` aligned with the container runtime stack versioning scheme.
 - Ubuntu base image:
   - If you change `UBUNTU_VERSION`, also update `UBUNTU_DIGEST` to keep builds reproducible.
 

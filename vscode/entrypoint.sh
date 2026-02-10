@@ -15,5 +15,8 @@ mkdir -p "${WORKDIR}" \
 chown gpubox:gpubox "${MNT_HOME}" || true
 chown -R gpubox:gpubox "${MNT_HOME}/.config" "${MNT_HOME}/.local" "${MNT_HOME}/.cache" "${WORKDIR}" || true
 
+# `code tunnel` no longer accepts a workspace positional argument.
+# Run from WORKDIR so the tunnel starts in the expected folder.
+cd "${WORKDIR}"
 exec gosu gpubox:gpubox \
-  code tunnel --name "${TUNNEL_NAME}" --accept-server-license-terms "${WORKDIR}"
+  code tunnel --name "${TUNNEL_NAME}" --accept-server-license-terms

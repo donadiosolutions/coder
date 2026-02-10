@@ -22,6 +22,13 @@
       "transformTemplates": [
         "{\"releases\":[{\"version\": $$.productVersion, \"digest\": $$.sha256hash}],\"sourceUrl\":\"https://github.com/microsoft/vscode\"}"
       ]
+    },
+    "vscodeCliStableWithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://update.code.visualstudio.com/api/update/cli-linux-x64/stable/latest",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\":[{\"version\": $$.productVersion & \"@\" & $$.sha256hash}],\"sourceUrl\":\"https://github.com/microsoft/vscode\"}"
+      ]
     }
   },
   "customManagers": [
@@ -42,12 +49,13 @@
       "description": "VS Code CLI version + sha256 (downloaded from update.code.visualstudio.com)",
       "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
       "matchStrings": [
-        "ARG VSCODE_CLI_VERSION=(?<currentValue>\\S+)\\nARG VSCODE_CLI_SHA256=(?<currentDigest>[a-f0-9]{64})"
+        "ARG VSCODE_CLI_VERSION=(?<currentVersion>\\S+)\\nARG VSCODE_CLI_SHA256=(?<currentHash>[a-f0-9]{64})"
       ],
-      "datasourceTemplate": "custom.vscodeCliStable",
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.vscodeCliStableWithShaBlock",
       "depNameTemplate": "vscode-cli",
-      "versioningTemplate": "semver",
-      "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{newValue}}}\\nARG VSCODE_CLI_SHA256={{{newDigest}}}"
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG VSCODE_CLI_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
     },
     {
       "customType": "regex",
@@ -96,9 +104,15 @@
       "groupName": "Container base images"
     },
     {
-      "matchDatasources": ["custom.vscodeCliStable"],
+      "matchDatasources": ["custom.vscodeCliStable", "custom.vscodeCliStableWithShaBlock"],
       "matchPackageNames": ["vscode-cli"],
       "groupName": "VS Code CLI"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ubuntu"],
+      "matchFileNames": ["charts/gpubox/Chart.yaml"],
+      "pinDigests": false
     },
     {
       "matchManagers": ["github-actions"],

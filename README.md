@@ -98,7 +98,7 @@ helm upgrade --install gpubox gpubox/gpubox \
 List available versions with `helm search repo gpubox/gpubox --versions`.
 
 By default, the chart uses image tag `v<chart-version>` when `image.tag` is not
-set (for example, chart `0.2.2` deploys image `ghcr.io/donadiosolutions/gpubox:v0.2.2`).
+set (for example, chart `0.2.3` deploys image `ghcr.io/donadiosolutions/gpubox:v0.2.3`).
 
 ### Provide SSH authorized keys (recommended)
 

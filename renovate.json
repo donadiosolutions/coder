@@ -5,6 +5,7 @@
     "enabled": true
   },
   "dependencyDashboard": true,
+  "suppressNotifications": ["dependencyLookupWarnings"],
   "schedule": ["before 3am on Monday"],
   "timezone": "Etc/UTC",
   "labels": ["dependencies"],
@@ -95,7 +96,7 @@
       "groupName": "Container base images"
     },
     {
-      "matchDatasources": ["custom"],
+      "matchDatasources": ["custom.vscodeCliStable"],
       "matchPackageNames": ["vscode-cli"],
       "groupName": "VS Code CLI"
     },

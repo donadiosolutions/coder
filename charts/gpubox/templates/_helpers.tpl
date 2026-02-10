@@ -67,6 +67,14 @@ Service name (shared between Service and StatefulSet.serviceName).
 {{- end -}}
 
 {{/*
+Application image tag.
+Defaults to release-style v<Chart.Version> when values.image.tag is unset.
+*/}}
+{{- define "gpubox.imageTag" -}}
+{{- default (printf "v%s" .Chart.Version) .Values.image.tag -}}
+{{- end -}}
+
+{{/*
 PVC names.
 */}}
 {{- define "gpubox.homeClaimName" -}}

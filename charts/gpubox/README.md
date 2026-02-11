@@ -25,6 +25,43 @@ helm upgrade --install gpubox ./charts/gpubox \
 - `persistence.home` and `persistence.transfer` configure PVC sizes and storage classes.
 - `ssh.authorizedKeys` injects `authorized_keys` into the mounted home volume via an initContainer.
 - `tolerations`, `affinity`, `nodeSelector` allow pinning to GPU nodes.
+- `extraResources` appends additional Kubernetes manifests to the release.
+
+## Extra resources
+
+`extraResources` accepts a list of resources where each item is either:
+- A YAML object.
+- A YAML string snippet.
+
+Each item is rendered through `tpl`, so templates can reference release/chart values.
+
+```yaml
+extraResources:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "{{ include \"gpubox.fullname\" . }}-extras"
+      namespace: "{{ .Release.Namespace }}"
+    data:
+      mode: "enabled"
+  - |
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: {{ include "gpubox.fullname" . }}-credentials
+    stringData:
+      token: change-me
+```
+
+Validation and metadata behavior:
+- Each `extraResources` item must render to exactly one YAML object.
+- Required fields are validated at render time: `apiVersion`, `kind`, and `metadata.name`.
+- If `metadata.namespace` is omitted, the chart injects `.Release.Namespace` for namespaced resources.
+- Namespace injection is skipped for known cluster-scoped kinds (for example, `Namespace`, `ClusterRole`, `ClusterRoleBinding`, `CustomResourceDefinition`).
+- Standard chart labels are added when missing; existing user-provided label values are preserved.
+
+Security note:
+- `extraResources` can create privileged or cluster-scoped objects (for example, RBAC and CRDs). Review and control supplied manifests carefully.
 
 ## SSH authorized keys
 

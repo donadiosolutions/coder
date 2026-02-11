@@ -145,6 +145,21 @@
     "extraVolumes": { "type": "array" },
     "extraVolumeMounts": { "type": "array" },
     "initContainers": { "type": "array" },
-    "sidecars": { "type": "array" }
+    "sidecars": { "type": "array" },
+    "extraResources": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          {
+            "type": "string",
+            "minLength": 1
+          }
+        ]
+      }
+    }
   }
 }

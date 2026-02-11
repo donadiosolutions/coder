@@ -1,0 +1,71 @@
+{{- $clusterScopedKinds := include "gpubox.extraResourceClusterScopedKinds" . | fromYaml -}}
+{{- $chartLabels := include "gpubox.labels" . | fromYaml -}}
+{{- range $idx, $item := .Values.extraResources -}}
+{{- $rendered := include "gpubox.extraResourceRender" (dict "value" $item "context" $) | trim -}}
+{{- if eq $rendered "" -}}
+{{- fail (printf "extraResources[%d] rendered to an empty document" $idx) -}}
+{{- end -}}
+{{- if regexMatch "(?m)^---\\s*$" $rendered -}}
+{{- fail (printf "extraResources[%d] must render to exactly one YAML document" $idx) -}}
+{{- end -}}
+{{- $resource := fromYaml $rendered -}}
+{{- if not (kindIs "map" $resource) -}}
+{{- fail (printf "extraResources[%d] must render to a YAML object" $idx) -}}
+{{- end -}}
+{{- if hasKey $resource "Error" -}}
+{{- fail (printf "extraResources[%d] failed to parse rendered YAML: %v" $idx (get $resource "Error")) -}}
+{{- end -}}
+{{- if not (hasKey $resource "apiVersion") -}}
+{{- fail (printf "extraResources[%d] is missing required field apiVersion" $idx) -}}
+{{- end -}}
+{{- if not (kindIs "string" (get $resource "apiVersion")) -}}
+{{- fail (printf "extraResources[%d] field apiVersion must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if eq (trim (get $resource "apiVersion")) "" -}}
+{{- fail (printf "extraResources[%d] field apiVersion must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if not (hasKey $resource "kind") -}}
+{{- fail (printf "extraResources[%d] is missing required field kind" $idx) -}}
+{{- end -}}
+{{- if not (kindIs "string" (get $resource "kind")) -}}
+{{- fail (printf "extraResources[%d] field kind must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if eq (trim (get $resource "kind")) "" -}}
+{{- fail (printf "extraResources[%d] field kind must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if not (hasKey $resource "metadata") -}}
+{{- fail (printf "extraResources[%d] is missing required field metadata" $idx) -}}
+{{- end -}}
+{{- $metadata := get $resource "metadata" -}}
+{{- if not (kindIs "map" $metadata) -}}
+{{- fail (printf "extraResources[%d] field metadata must be a YAML object" $idx) -}}
+{{- end -}}
+{{- if not (hasKey $metadata "name") -}}
+{{- fail (printf "extraResources[%d] is missing required field metadata.name" $idx) -}}
+{{- end -}}
+{{- if not (kindIs "string" (get $metadata "name")) -}}
+{{- fail (printf "extraResources[%d] field metadata.name must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if eq (trim (get $metadata "name")) "" -}}
+{{- fail (printf "extraResources[%d] field metadata.name must be a non-empty string" $idx) -}}
+{{- end -}}
+{{- if and (not (hasKey $metadata "namespace")) (not (hasKey $clusterScopedKinds (get $resource "kind"))) -}}
+{{- $_ := set $metadata "namespace" $.Release.Namespace -}}
+{{- end -}}
+{{- $labels := dict -}}
+{{- if hasKey $metadata "labels" -}}
+{{- $labels = get $metadata "labels" -}}
+{{- if not (kindIs "map" $labels) -}}
+{{- fail (printf "extraResources[%d] field metadata.labels must be a YAML object" $idx) -}}
+{{- end -}}
+{{- end -}}
+{{- range $labelKey, $labelValue := $chartLabels -}}
+{{- if not (hasKey $labels $labelKey) -}}
+{{- $_ := set $labels $labelKey $labelValue -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $metadata "labels" $labels -}}
+{{- $_ := set $resource "metadata" $metadata -}}
+---
+{{ toYaml $resource }}
+{{- end -}}

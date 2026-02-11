@@ -103,3 +103,45 @@ SSH authorized_keys ConfigMap name.
 {{- printf "%s-ssh-authorized-keys" (include "gpubox.fullname" .) -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Render an extra resource value through tpl.
+Supports either a string template or an object converted to YAML first.
+*/}}
+{{- define "gpubox.extraResourceRender" -}}
+{{- $value := .value -}}
+{{- $context := .context -}}
+{{- if kindIs "string" $value -}}
+{{- tpl $value $context -}}
+{{- else -}}
+{{- tpl (toYaml $value) $context -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Well-known cluster-scoped kinds.
+Used to avoid namespace injection for extraResources items.
+*/}}
+{{- define "gpubox.extraResourceClusterScopedKinds" -}}
+Namespace: true
+Node: true
+PersistentVolume: true
+StorageClass: true
+PriorityClass: true
+RuntimeClass: true
+IngressClass: true
+ClusterRole: true
+ClusterRoleBinding: true
+CustomResourceDefinition: true
+MutatingWebhookConfiguration: true
+ValidatingWebhookConfiguration: true
+ValidatingAdmissionPolicy: true
+ValidatingAdmissionPolicyBinding: true
+APIService: true
+VolumeAttachment: true
+CSIDriver: true
+CSINode: true
+PodSecurityPolicy: true
+FlowSchema: true
+PriorityLevelConfiguration: true
+{{- end -}}

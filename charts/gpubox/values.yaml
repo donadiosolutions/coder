@@ -162,3 +162,24 @@ extraVolumeMounts: []
 
 initContainers: []
 sidecars: []
+
+extraResources: []
+# Example (object form):
+# extraResources:
+#   - apiVersion: v1
+#     kind: ConfigMap
+#     metadata:
+#       name: "{{ include \"gpubox.fullname\" . }}-extra"
+#       namespace: "{{ .Release.Namespace }}"
+#     data:
+#       key: value
+#
+# Example (string form):
+# extraResources:
+#   - |
+#     apiVersion: v1
+#     kind: Secret
+#     metadata:
+#       name: {{ include "gpubox.fullname" . }}-extra-secret
+#     stringData:
+#       token: change-me

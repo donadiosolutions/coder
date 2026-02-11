@@ -20,6 +20,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Validate release script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/release/render_release_body.py
+          bash -n scripts/release/publish.sh
+          bash -n scripts/release/verify_draft.sh
+
+      - name: Run release script fixture tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/release/tests/run.sh
+
       - name: Install gitleaks
         shell: bash
         run: |

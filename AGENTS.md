@@ -12,6 +12,7 @@ This repository contains a small “remote devbox” stack:
 - `charts/gpubox/`: Helm chart sources (`Chart.yaml`, `values.yaml`, `values.schema.json`).
 - `.github/workflows/build.yml`: CI that builds/pushes the image and packages the chart.
 - `.github/workflows/release.yml`: reusable CI workflow that creates/updates GitHub Releases.
+- `scripts/release/`: release helper scripts (`render_release_body.py`, `verify_draft.sh`, `publish.sh`).
 
 ## Common commands
 
@@ -41,10 +42,11 @@ This repository contains a small “remote devbox” stack:
   - the container image to GHCR
   - the Helm chart package + SBOM, and publishing the Helm repo to `gh-pages`
 - For `v*` tag pushes, `build.yml` calls `release.yml` after successful build jobs.
-- `release.yml` creates/updates a GitHub Release for that tag.
+- `release.yml` creates/updates a **draft** GitHub Release for that tag.
   - It downloads the `helm-chart` artifact from the same workflow run.
-  - It creates a release body with a stable install template plus GitHub-generated notes.
+  - It renders a deterministic release body (`Highlights`, `Install`, `Full changelog`) from repo scripts.
   - It uploads `dist/*.tgz` and `dist/*.spdx.json` to the GitHub Release as assets.
+  - It verifies draft state, body headings, and required assets after update.
 
 ### Cut a release
 
@@ -53,11 +55,29 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 git push origin vX.Y.Z
 ```
 
+### Publish a prepared draft release
+
+```bash
+scripts/release/publish.sh vX.Y.Z
+```
+
+Notes:
+- Tag CI intentionally prepares draft releases first; publishing is a separate explicit action.
+- `scripts/release/publish.sh` requires `gh` and `jq` on `PATH`.
+- GitHub may temporarily show an `untagged-*` URL while updates propagate. Treat
+  `/releases/tag/vX.Y.Z` as the canonical URL after publish.
+
 ### Fix a failed release
 
 Re-run the `build` workflow for that tag in the GitHub Actions UI (or re-run only the
-`release` job from the same run).
-This is safe and idempotent because the release job updates existing releases.
+`release` job from the same run), then re-run:
+
+```bash
+scripts/release/publish.sh vX.Y.Z
+```
+
+This is safe and idempotent because the release job updates existing draft releases and
+the publish script verifies readiness before publishing.
 
 ## Version bump checklist
 

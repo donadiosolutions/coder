@@ -100,6 +100,29 @@ List available versions with `helm search repo gpubox/gpubox --versions`.
 By default, the chart uses image tag `v<chart-version>` when `image.tag` is not
 set (for example, chart `1.0.0` deploys image `ghcr.io/donadiosolutions/gpubox:v1.0.0`).
 
+## Release lifecycle
+
+Tag pushes (`vX.Y.Z`) run release automation that prepares a **draft** GitHub release
+with:
+- `gpubox-<version>.tgz`
+- `gpubox-chart.sbom.spdx.json`
+- deterministic release notes with `## Highlights`, `## Install`, and
+  `## Full changelog`
+
+After draft validation, publish explicitly:
+
+```bash
+scripts/release/publish.sh vX.Y.Z
+```
+
+This command verifies draft state, required headings, and required assets before
+publishing as latest.
+
+Notes:
+- `scripts/release/publish.sh` expects `gh` and `jq` to be available on your `PATH`.
+- Draft URLs may briefly appear as `untagged-*` while GitHub updates metadata.
+- The canonical published URL format is `/releases/tag/vX.Y.Z`.
+
 ### Provide SSH authorized keys (recommended)
 
 The image does **not** bake an `authorized_keys` file. The chart can inject keys

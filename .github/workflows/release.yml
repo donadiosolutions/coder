@@ -21,6 +21,9 @@ jobs:
     if: startsWith(inputs.tag, 'v')
     runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
       - name: Download helm-chart artifact
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
@@ -59,7 +62,7 @@ jobs:
           ls -1 dist/*.tgz >/dev/null
           ls -1 dist/*.spdx.json >/dev/null
 
-      - name: Generate release body
+      - name: Generate release notes payload
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
@@ -69,56 +72,51 @@ jobs:
             const repo = context.repo.repo;
             const tag = "${{ inputs.tag }}";
 
-            const pagesUrl = `https://${owner}.github.io/${repo}`;
-            const imageGhcr = `ghcr.io/${owner}/gpubox:${tag}`;
-            const imageDockerHub = `docker.io/bcdonadio/gpubox:${tag}`;
-
             const { data } = await github.rest.repos.generateReleaseNotes({
               owner,
               repo,
               tag_name: tag,
             });
 
-            const notes = (data && data.body ? data.body : "").trim();
+            fs.writeFileSync("generated-notes.json", JSON.stringify(data, null, 2), {
+              encoding: "utf8",
+            });
+            core.info("Wrote generated-notes.json");
 
-            const bodyLines = [
-              "## Install",
-              "",
-              "Helm chart repo (GitHub Pages):",
-              "",
-              "```bash",
-              `helm repo add gpubox ${pagesUrl}`,
-              "helm repo update",
-              "",
-              "helm upgrade --install gpubox gpubox/gpubox \\",
-              "  --namespace gpubox \\",
-              "  --create-namespace",
-              "```",
-              "",
-              "Container images:",
-              "",
-              `- \`${imageGhcr}\``,
-              `- \`${imageDockerHub}\``,
-              "",
-              "## Release notes",
-              "",
-              notes,
-              "",
-            ];
+      - name: Render release body
+        shell: bash
+        run: |
+          set -euo pipefail
 
-            const body = bodyLines.join("\n");
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          pages_url="https://${owner}.github.io/${repo}"
+          image_ghcr="ghcr.io/${owner}/gpubox:${{ inputs.tag }}"
+          image_dockerhub="docker.io/bcdonadio/gpubox:${{ inputs.tag }}"
 
-            fs.writeFileSync("release-body.md", body, { encoding: "utf8" });
-            core.info("Wrote release-body.md");
+          python3 scripts/release/render_release_body.py \
+            --tag "${{ inputs.tag }}" \
+            --pages-url "${pages_url}" \
+            --image-ghcr "${image_ghcr}" \
+            --image-dockerhub "${image_dockerhub}" \
+            --notes-json generated-notes.json \
+            --output release-body.md
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
         with:
           tag: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
+          draft: true
           bodyFile: release-body.md
-          omitDraftDuringUpdate: true
-          omitBodyDuringUpdate: true
+          omitDraftDuringUpdate: false
+          omitBodyDuringUpdate: false
           artifacts: "dist/*.tgz,dist/*.spdx.json"
           allowUpdates: true
           artifactErrorsFailBuild: true
+
+      - name: Verify draft release state
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/release/verify_draft.sh "${{ inputs.tag }}"

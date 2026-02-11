@@ -103,6 +103,50 @@ if [[ ! -x "${VERIFY_SCRIPT}" ]]; then
     "Keep release helper scripts versioned and executable in the repository."
 fi
 
+fetch_release_json() {
+  local repo="$1"
+  local tag="$2"
+  local api_err
+  local view_err
+  local api_json
+  local view_json
+  local api_msg
+  local view_msg
+
+  api_err="$(mktemp)"
+  if api_json="$(gh api "repos/${repo}/releases/tags/${tag}" 2>"${api_err}")"; then
+    rm -f "${api_err}"
+    printf '%s' "${api_json}"
+    return 0
+  fi
+  api_msg="$(tr '\n' ' ' <"${api_err}")"
+  rm -f "${api_err}"
+
+  view_err="$(mktemp)"
+  if view_json="$(gh release view "${tag}" --repo "${repo}" \
+    --json databaseId,isDraft,url,body,assets,tagName,publishedAt 2>"${view_err}")"; then
+    rm -f "${view_err}"
+    jq -c '{
+      id: .databaseId,
+      draft: .isDraft,
+      html_url: .url,
+      body: .body,
+      assets: .assets,
+      tag_name: .tagName,
+      published_at: .publishedAt
+    }' <<<"${view_json}"
+    return 0
+  fi
+  view_msg="$(tr '\n' ' ' <"${view_err}")"
+  rm -f "${view_err}"
+
+  {
+    echo "${api_msg}"
+    echo "${view_msg}"
+  } >&2
+  return 1
+}
+
 if [[ -n "${JSON_FILE}" ]]; then
   RELEASE_JSON="$(cat "${JSON_FILE}")"
   REPO="fixture/repo"
@@ -115,12 +159,16 @@ else
       "Document gh as a hard prerequisite for release operators."
   fi
 
+  if [[ -z "${GH_TOKEN:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
+    export GH_TOKEN="${GITHUB_TOKEN}"
+  fi
+
   REPO="${GITHUB_REPOSITORY:-}"
   if [[ -z "${REPO}" ]]; then
     REPO="$(gh repo view --json nameWithOwner -q '.nameWithOwner')"
   fi
 
-  if ! RELEASE_JSON="$(gh api "repos/${REPO}/releases/tags/${TAG}" 2>/tmp/publish_release.err)"; then
+  if ! RELEASE_JSON="$(fetch_release_json "${REPO}" "${TAG}" 2>/tmp/publish_release.err)"; then
     die \
       "Unable to fetch release metadata for publication." \
       "$(tr '\n' ' ' </tmp/publish_release.err)" \
@@ -129,8 +177,8 @@ else
   fi
 fi
 
-DRAFT="$(jq -r '.draft // false' <<<"${RELEASE_JSON}")"
-RELEASE_ID="$(jq -r '.id // empty' <<<"${RELEASE_JSON}")"
+DRAFT="$(jq -r '.draft // .isDraft // false' <<<"${RELEASE_JSON}")"
+RELEASE_ID="$(jq -r '.id // .databaseId // empty' <<<"${RELEASE_JSON}")"
 HTML_URL="$(jq -r '.html_url // .url // ""' <<<"${RELEASE_JSON}")"
 
 if [[ "${DRAFT}" != "true" ]]; then
@@ -181,9 +229,13 @@ fi
 attempt=1
 max_attempts=12
 while [[ "${attempt}" -le "${max_attempts}" ]]; do
-  LIVE_JSON="$(gh api "repos/${REPO}/releases/tags/${TAG}")"
-  LIVE_DRAFT="$(jq -r '.draft // false' <<<"${LIVE_JSON}")"
-  LIVE_PUBLISHED_AT="$(jq -r '.published_at // ""' <<<"${LIVE_JSON}")"
+  if ! LIVE_JSON="$(fetch_release_json "${REPO}" "${TAG}" 2>/tmp/publish_poll.err)"; then
+    sleep 3
+    attempt=$((attempt + 1))
+    continue
+  fi
+  LIVE_DRAFT="$(jq -r '.draft // .isDraft // false' <<<"${LIVE_JSON}")"
+  LIVE_PUBLISHED_AT="$(jq -r '.published_at // .publishedAt // ""' <<<"${LIVE_JSON}")"
   LIVE_URL="$(jq -r '.html_url // .url // ""' <<<"${LIVE_JSON}")"
 
   if [[ "${LIVE_DRAFT}" == "false" && -n "${LIVE_PUBLISHED_AT}" ]]; then

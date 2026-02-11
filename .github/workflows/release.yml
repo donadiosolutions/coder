@@ -116,6 +116,8 @@ jobs:
           artifactErrorsFailBuild: true
 
       - name: Verify draft release state
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail

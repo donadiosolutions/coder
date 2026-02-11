@@ -78,6 +78,50 @@ if ! command -v jq >/dev/null 2>&1; then
     "Include jq in local bootstrap docs and CI images where release tooling is used."
 fi
 
+fetch_release_json() {
+  local repo="$1"
+  local tag="$2"
+  local api_err
+  local view_err
+  local api_json
+  local view_json
+  local api_msg
+  local view_msg
+
+  api_err="$(mktemp)"
+  if api_json="$(gh api "repos/${repo}/releases/tags/${tag}" 2>"${api_err}")"; then
+    rm -f "${api_err}"
+    printf '%s' "${api_json}"
+    return 0
+  fi
+  api_msg="$(tr '\n' ' ' <"${api_err}")"
+  rm -f "${api_err}"
+
+  view_err="$(mktemp)"
+  if view_json="$(gh release view "${tag}" --repo "${repo}" \
+    --json databaseId,isDraft,url,body,assets,tagName,publishedAt 2>"${view_err}")"; then
+    rm -f "${view_err}"
+    jq -c '{
+      id: .databaseId,
+      draft: .isDraft,
+      html_url: .url,
+      body: .body,
+      assets: .assets,
+      tag_name: .tagName,
+      published_at: .publishedAt
+    }' <<<"${view_json}"
+    return 0
+  fi
+  view_msg="$(tr '\n' ' ' <"${view_err}")"
+  rm -f "${view_err}"
+
+  {
+    echo "${api_msg}"
+    echo "${view_msg}"
+  } >&2
+  return 1
+}
+
 if [[ -n "${JSON_FILE}" ]]; then
   RELEASE_JSON="$(cat "${JSON_FILE}")"
   REPO="fixture/repo"
@@ -90,12 +134,16 @@ else
       "Document gh as a prerequisite for release operators."
   fi
 
+  if [[ -z "${GH_TOKEN:-}" && -n "${GITHUB_TOKEN:-}" ]]; then
+    export GH_TOKEN="${GITHUB_TOKEN}"
+  fi
+
   REPO="${GITHUB_REPOSITORY:-}"
   if [[ -z "${REPO}" ]]; then
     REPO="$(gh repo view --json nameWithOwner -q '.nameWithOwner')"
   fi
 
-  if ! RELEASE_JSON="$(gh api "repos/${REPO}/releases/tags/${TAG}" 2>/tmp/verify_draft.err)"; then
+  if ! RELEASE_JSON="$(fetch_release_json "${REPO}" "${TAG}" 2>/tmp/verify_draft.err)"; then
     die \
       "Unable to fetch release metadata." \
       "$(tr '\n' ' ' </tmp/verify_draft.err)" \

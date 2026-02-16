@@ -37,3 +37,11 @@ sbom*.json
 sbom*.spdx
 *.att
 *.sig
+
+# Playwright local artifacts
+.playwright/
+.playwright-cli/
+playwright/.auth/
+playwright-report/
+test-results/
+blob-report/

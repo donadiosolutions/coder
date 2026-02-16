@@ -15,9 +15,25 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 assert_contains() {
   local file="$1"
   local pattern="$2"
-  if ! grep -Fq "${pattern}" "${file}"; then
+  if ! grep -Fq -- "${pattern}" "${file}"; then
     echo "Expected pattern not found: ${pattern}" >&2
     echo "In file: ${file}" >&2
+    exit 1
+  fi
+}
+
+assert_order() {
+  local file="$1"
+  local first="$2"
+  local second="$3"
+  local first_line
+  local second_line
+
+  first_line="$(grep -nF -- "${first}" "${file}" | head -n1 | cut -d: -f1)"
+  second_line="$(grep -nF -- "${second}" "${file}" | head -n1 | cut -d: -f1)"
+
+  if [[ -z "${first_line}" || -z "${second_line}" || "${first_line}" -ge "${second_line}" ]]; then
+    echo "Expected '${first}' to appear before '${second}' in ${file}" >&2
     exit 1
   fi
 }
@@ -50,7 +66,9 @@ assert_contains "${output_md}" "## Highlights"
 assert_contains "${output_md}" "## Install"
 assert_contains "${output_md}" "## Full changelog"
 assert_contains "${output_md}" "helm repo add gpubox https://example.github.io/gpubox"
-assert_contains "${output_md}" 'This release includes `v9.9.9` artifacts'
+assert_contains "${output_md}" "- Example change in #123"
+assert_order "${output_md}" "## Highlights" "## Install"
+assert_order "${output_md}" "## Install" "## Full changelog"
 
 assert_succeeds "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-valid.json"
 assert_fails "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-missing-assets.json"

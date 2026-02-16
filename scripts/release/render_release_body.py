@@ -38,12 +38,26 @@ def load_changelog(notes_json_path: Path) -> str:
     return "_No generated changelog content was returned by GitHub._"
 
 
-def build_highlights(tag: str) -> list[str]:
-    return [
-        f"This release includes `{tag}` artifacts for the gpubox chart and runtime image.",
-        "Chart package and SBOM assets are attached to support installation and verification workflows.",
-        "Use the install instructions below and review the full changelog before rollout.",
-    ]
+def extract_change_bullets(changelog: str, limit: int = 3) -> list[str]:
+    bullets: list[str] = []
+    for raw_line in changelog.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("* ") or line.startswith("- "):
+            bullet = line[2:].strip()
+            if bullet:
+                bullets.append(bullet)
+        if len(bullets) >= limit:
+            break
+    return bullets
+
+
+def build_highlights(tag: str, changelog: str) -> list[str]:
+    highlights = extract_change_bullets(changelog)
+    if highlights:
+        return highlights
+    return [f"Release `{tag}` includes updates described in the full changelog below."]
 
 
 def render_body(
@@ -53,7 +67,7 @@ def render_body(
     image_dockerhub: str,
     changelog: str,
 ) -> str:
-    highlights = build_highlights(tag)
+    highlights = build_highlights(tag, changelog)
 
     body_lines: list[str] = [
         "## Highlights",

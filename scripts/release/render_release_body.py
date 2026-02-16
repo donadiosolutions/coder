@@ -118,7 +118,8 @@ def summarize_renovate(titles: list[str]) -> str:
             normalized.append(point.replace("fix ", "fixing ", 1))
             continue
         normalized.append(point)
-    return sentence_case("Improved Renovate reliability by " + human_join(normalized))
+    summary = sentence_case("Improved Renovate reliability by " + human_join(normalized))
+    return re.sub(r"\bgithub\b", "GitHub", summary, flags=re.IGNORECASE)
 
 
 def summarize_dependencies(titles: list[str]) -> str:

@@ -83,6 +83,91 @@ jobs:
             });
             core.info("Wrote generated-notes.json");
 
+      - name: Resolve OpenAI API key
+        id: resolve_openai_key
+        shell: bash
+        run: |
+          set -euo pipefail
+          key=""
+          source="none"
+
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            key="${{ secrets.OPENAI_API_KEY }}"
+            source="secrets"
+          elif [ -n "${{ vars.OPENAI_API_KEY }}" ]; then
+            key="${{ vars.OPENAI_API_KEY }}"
+            source="vars"
+          fi
+
+          if [ -n "${key}" ]; then
+            echo "::add-mask::${key}"
+            echo "OPENAI_API_KEY_RESOLVED=${key}" >>"$GITHUB_ENV"
+            echo "has_key=true" >>"$GITHUB_OUTPUT"
+            echo "key_source=${source}" >>"$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >>"$GITHUB_OUTPUT"
+            echo "key_source=${source}" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Codex highlights prompt
+        if: steps.resolve_openai_key.outputs.has_key == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release/generate_release_highlights_prompt.py \
+            --release "${{ inputs.tag }}" \
+            --output-prompt codex-highlights.prompt.txt \
+            --output-context-json codex-highlights.context.json
+
+      - name: Generate highlights with Codex
+        id: codex_highlights
+        if: steps.resolve_openai_key.outputs.has_key == 'true'
+        continue-on-error: true
+        uses: openai/codex-action@086169432f1d2ab2f4057540b1754d550f6a1189 # v1.4
+        with:
+          openai-api-key: ${{ env.OPENAI_API_KEY_RESOLVED }}
+          prompt-file: codex-highlights.prompt.txt
+          output-file: codex-highlights.md
+          model: gpt-5.2
+          effort: high
+          sandbox: read-only
+
+      - name: Validate Codex highlights output
+        id: codex_highlights_validate
+        if: steps.resolve_openai_key.outputs.has_key == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_file="codex-highlights.md"
+          validated_file="codex-highlights.validated.md"
+
+          if [ "${{ steps.codex_highlights.outcome }}" != "success" ]; then
+            echo "::warning::Codex highlights generation failed; using deterministic highlights fallback."
+            echo "use_codex_highlights=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ ! -s "${output_file}" ]; then
+            echo "::warning::Codex highlights output missing; using deterministic highlights fallback."
+            echo "use_codex_highlights=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          awk '/^[[:space:]]*-[[:space:]]+/{sub(/^[[:space:]]*/, "", $0); print}' "${output_file}" >"${validated_file}"
+          bullet_count="$(grep -c '^- ' "${validated_file}" || true)"
+
+          if [ "${bullet_count}" -lt 3 ] || [ "${bullet_count}" -gt 6 ]; then
+            echo "::warning::Codex output must contain 3-6 bullet lines; using deterministic highlights fallback."
+            rm -f "${validated_file}"
+            echo "use_codex_highlights=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "use_codex_highlights=true" >>"$GITHUB_OUTPUT"
+          echo "highlights_file=${validated_file}" >>"$GITHUB_OUTPUT"
+
       - name: Render release body
         shell: bash
         run: |
@@ -94,13 +179,20 @@ jobs:
           image_ghcr="ghcr.io/${owner}/gpubox:${{ inputs.tag }}"
           image_dockerhub="docker.io/bcdonadio/gpubox:${{ inputs.tag }}"
 
-          python3 scripts/release/render_release_body.py \
-            --tag "${{ inputs.tag }}" \
-            --pages-url "${pages_url}" \
-            --image-ghcr "${image_ghcr}" \
-            --image-dockerhub "${image_dockerhub}" \
-            --notes-json generated-notes.json \
+          render_args=(
+            --tag "${{ inputs.tag }}"
+            --pages-url "${pages_url}"
+            --image-ghcr "${image_ghcr}"
+            --image-dockerhub "${image_dockerhub}"
+            --notes-json generated-notes.json
             --output release-body.md
+          )
+
+          if [ "${{ steps.codex_highlights_validate.outputs.use_codex_highlights || 'false' }}" = "true" ]; then
+            render_args+=(--highlights-file "${{ steps.codex_highlights_validate.outputs.highlights_file }}")
+          fi
+
+          python3 scripts/release/render_release_body.py "${render_args[@]}"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0

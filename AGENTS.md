@@ -59,7 +59,9 @@ This repository contains a small “remote devbox” stack:
 - For `v*` tag pushes, `build.yml` calls `release.yml` after successful build jobs.
 - `release.yml` creates/updates a **draft** GitHub Release for that tag.
   - It downloads the `helm-chart` artifact from the same workflow run.
-  - It renders a deterministic release body (`Highlights`, `Install`, `Full changelog`) from repo scripts.
+  - It renders release notes from repo scripts with:
+    - `Highlights`: optional AI generation via pinned `openai/codex-action` when `OPENAI_API_KEY` is available, with deterministic fallback.
+    - `Install` and `Full changelog`: deterministic output from repository scripts.
   - It uploads `dist/*.tgz` and `dist/*.spdx.json` to the GitHub Release as assets.
   - It verifies draft state, body headings, and required assets after update.
 

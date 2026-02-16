@@ -6,8 +6,10 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 FIXTURES_DIR="${SCRIPT_DIR}/fixtures"
 
 RENDER_SCRIPT="${ROOT_DIR}/scripts/release/render_release_body.py"
+PROMPT_SCRIPT="${ROOT_DIR}/scripts/release/generate_release_highlights_prompt.py"
 VERIFY_SCRIPT="${ROOT_DIR}/scripts/release/verify_draft.sh"
 PUBLISH_SCRIPT="${ROOT_DIR}/scripts/release/publish.sh"
+PROMPT_TEST_SCRIPT="${SCRIPT_DIR}/test_generate_release_highlights_prompt.py"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "${tmp_dir}"' EXIT
@@ -71,6 +73,54 @@ assert_contains "${output_md}" "  --set image.tag=v9.9.9 \\"
 assert_contains "${output_md}" "- Example change in #123"
 assert_order "${output_md}" "## Highlights" "## Install"
 assert_order "${output_md}" "## Install" "## Full changelog"
+
+# Validate optional highlights-file override path.
+override_highlights="${tmp_dir}/override-highlights.md"
+cat >"${override_highlights}" <<'EOF'
+- Topline shipped change one.
+- Topline shipped change two.
+- Topline shipped change three.
+EOF
+
+output_md_override="${tmp_dir}/release-body-override.md"
+python3 "${RENDER_SCRIPT}" \
+  --tag v9.9.9 \
+  --pages-url https://example.github.io/gpubox \
+  --image-ghcr ghcr.io/example/gpubox:v9.9.9 \
+  --image-dockerhub docker.io/example/gpubox:v9.9.9 \
+  --notes-json "${FIXTURES_DIR}/generated-notes.json" \
+  --highlights-file "${override_highlights}" \
+  --output "${output_md_override}"
+
+assert_contains "${output_md_override}" "- Topline shipped change one."
+assert_contains "${output_md_override}" "- Topline shipped change two."
+assert_contains "${output_md_override}" "- Topline shipped change three."
+
+# Invalid highlights override falls back to deterministic highlights.
+invalid_highlights="${tmp_dir}/invalid-highlights.md"
+cat >"${invalid_highlights}" <<'EOF'
+not-a-bullet
+still-not-a-bullet
+EOF
+
+output_md_invalid="${tmp_dir}/release-body-invalid.md"
+python3 "${RENDER_SCRIPT}" \
+  --tag v9.9.9 \
+  --pages-url https://example.github.io/gpubox \
+  --image-ghcr ghcr.io/example/gpubox:v9.9.9 \
+  --image-dockerhub docker.io/example/gpubox:v9.9.9 \
+  --notes-json "${FIXTURES_DIR}/generated-notes.json" \
+  --highlights-file "${invalid_highlights}" \
+  --output "${output_md_invalid}"
+
+assert_contains "${output_md_invalid}" "- Example change in #123"
+
+# Prompt-generator unit tests with fixtures.
+assert_succeeds python3 "${PROMPT_TEST_SCRIPT}"
+
+# Prompt-generator smoke invocation for syntax/CLI safety.
+assert_succeeds python3 "${PROMPT_SCRIPT}" --help
+assert_contains <(python3 "${PROMPT_SCRIPT}" --help) "--release"
 
 assert_succeeds "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-valid.json"
 assert_fails "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-missing-assets.json"

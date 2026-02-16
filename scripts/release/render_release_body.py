@@ -67,6 +67,7 @@ def render_body(
     image_dockerhub: str,
     changelog: str,
 ) -> str:
+    chart_version = tag[1:] if tag.startswith("v") else tag
     highlights = build_highlights(tag, changelog)
 
     body_lines: list[str] = [
@@ -82,6 +83,8 @@ def render_body(
         "helm repo update",
         "",
         "helm upgrade --install gpubox gpubox/gpubox \\",
+        f"  --version {chart_version} \\",
+        f"  --set image.tag={tag} \\",
         "  --namespace gpubox \\",
         "  --create-namespace",
         "```",

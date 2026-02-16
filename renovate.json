@@ -6,7 +6,7 @@
   },
   "dependencyDashboard": true,
   "suppressNotifications": ["dependencyLookupWarnings"],
-  "schedule": ["before 3am on Monday"],
+  "schedule": ["* 0-2 * * *"],
   "timezone": "Etc/UTC",
   "labels": ["dependencies"],
   "dockerfile": {
@@ -34,14 +34,14 @@
       "defaultRegistryUrlTemplate": "https://go.dev/dl/?mode=json",
       "format": "json",
       "transformTemplates": [
-        "{ \"releases\": $map($$[stable=true], function($r) { $f := $r.files[os='linux' and arch='amd64' and kind='archive'][0]; { \"version\": $substring($r.version, 2) & \"@\" & $f.sha256 } }), \"sourceUrl\": \"https://go.dev/dl/\" }"
+        "{ \"releases\": $map($$[stable=true], function($r) {($f := $r.files[os='linux' and arch='amd64' and kind='archive'][0]; { \"version\": $substring($r.version, 2) & \"@\" & $f.sha256 })}), \"sourceUrl\": \"https://go.dev/dl/\" }"
       ]
     },
     "nodeLtsLinuxX64WithShaBlock": {
       "defaultRegistryUrlTemplate": "https://nodejs.org/dist/latest-v{{packageName}}.x/SHASUMS256.txt",
       "format": "plain",
       "transformTemplates": [
-        "{ $line := $$.releases[$contains(version, \"-linux-x64.tar.xz\")][0].version; $parts := $split($line, \"  \"); $filenameParts := $split($parts[1], \"-\"); { \"releases\": [{ \"version\": $substring($filenameParts[1], 1) & \"@\" & $parts[0] }], \"sourceUrl\": \"https://nodejs.org/download/release/\" } }"
+        "( $line := $$.releases[$contains(version, \"-linux-x64.tar.xz\")][0].version; $parts := $split($line, \"  \"); $filenameParts := $split($parts[1], \"-\"); { \"releases\": [{ \"version\": $substring($filenameParts[1], 1) & \"@\" & $parts[0] }], \"sourceUrl\": \"https://nodejs.org/download/release/\" } )"
       ]
     },
     "miniforgeLinuxX64WithShaBlock": {

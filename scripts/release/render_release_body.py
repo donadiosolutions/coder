@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 
@@ -53,11 +54,122 @@ def extract_change_bullets(changelog: str, limit: int = 3) -> list[str]:
     return bullets
 
 
+def extract_pr_titles(changelog: str) -> list[str]:
+    titles: list[str] = []
+    for bullet in extract_change_bullets(changelog, limit=100):
+        cleaned = re.sub(r"\s+by\s+@[^ ]+\s+in\s+https?://\S+$", "", bullet).strip()
+        cleaned = re.sub(r"\s*-\s*autoclosed\s*$", "", cleaned, flags=re.IGNORECASE)
+        if cleaned:
+            titles.append(cleaned)
+    return titles
+
+
+def strip_conventional_prefix(title: str) -> str:
+    return re.sub(r"^[a-z]+(?:\([^)]+\))?!?:\s*", "", title).strip()
+
+
+def sentence_case(text: str) -> str:
+    if not text:
+        return text
+    text = text[0].upper() + text[1:]
+    if text[-1] not in ".!?":
+        text = f"{text}."
+    return text
+
+
+def human_join(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+
+def classify_title(title: str) -> str:
+    lower = title.lower()
+    if "renovate" in lower and any(
+        key in lower
+        for key in ("resolve", "repair", "datasource", "regex", "attachment", "digest", "fix(")
+    ):
+        return "renovate"
+    if any(key in lower for key in ("deps", "dependency", "vs code cli", "pin dependencies", " uv ")):
+        return "dependencies"
+    if "bump chart version" in lower:
+        return "release"
+    return "other"
+
+
+def summarize_renovate(titles: list[str]) -> str:
+    points = [strip_conventional_prefix(title) for title in titles]
+    normalized: list[str] = []
+    for point in points:
+        if point.startswith("resolve "):
+            normalized.append(point.replace("resolve ", "resolving ", 1))
+            continue
+        if point.startswith("repair "):
+            normalized.append(point.replace("repair ", "repairing ", 1))
+            continue
+        if point.startswith("use "):
+            normalized.append(point.replace("use ", "using ", 1))
+            continue
+        if point.startswith("fix "):
+            normalized.append(point.replace("fix ", "fixing ", 1))
+            continue
+        normalized.append(point)
+    return sentence_case("Improved Renovate reliability by " + human_join(normalized))
+
+
+def summarize_dependencies(titles: list[str]) -> str:
+    lower_titles = [title.lower() for title in titles]
+    changes: list[str] = []
+    if any("pin dependencies" in title for title in lower_titles):
+        changes.append("pinned GitHub Actions dependencies")
+    if any("vs code cli" in title for title in lower_titles):
+        changes.append("updated VS Code CLI")
+    if any(re.search(r"\buv\b", title) for title in lower_titles):
+        changes.append("updated uv")
+
+    if not changes:
+        changes = [strip_conventional_prefix(title) for title in titles]
+
+    return sentence_case(f"Dependency updates: {human_join(changes)}")
+
+
+def summarize_release(titles: list[str]) -> str:
+    first = titles[0]
+    match = re.search(r"bump chart version to ([0-9]+\.[0-9]+\.[0-9]+)", first, flags=re.IGNORECASE)
+    if match:
+        return f"Release readiness: bumped the Helm chart version to {match.group(1)}."
+    return sentence_case(f"Release readiness: {strip_conventional_prefix(first)}")
+
+
 def build_highlights(tag: str, changelog: str) -> list[str]:
-    highlights = extract_change_bullets(changelog)
-    if highlights:
-        return highlights
-    return [f"Release `{tag}` includes updates described in the full changelog below."]
+    titles = extract_pr_titles(changelog)
+    if not titles:
+        return [f"Release `{tag}` includes updates described in the full changelog below."]
+
+    grouped: dict[str, list[str]] = {}
+    for title in titles:
+        key = classify_title(title)
+        grouped.setdefault(key, []).append(title)
+
+    highlights: list[str] = []
+    for key, group_titles in grouped.items():
+        if key == "renovate":
+            highlights.append(summarize_renovate(group_titles))
+            continue
+        if key == "dependencies":
+            highlights.append(summarize_dependencies(group_titles))
+            continue
+        if key == "release":
+            highlights.append(summarize_release(group_titles))
+            continue
+        for title in group_titles:
+            highlights.append(sentence_case(strip_conventional_prefix(title)))
+
+    return highlights[:4]
 
 
 def render_body(

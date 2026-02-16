@@ -43,20 +43,6 @@
       "transformTemplates": [
         "( $line := $$.releases[$contains(version, \"-linux-x64.tar.xz\")][0].version; $parts := $split($line, \"  \"); $filenameParts := $split($parts[1], \"-\"); { \"releases\": [{ \"version\": $substring($filenameParts[1], 1) & \"@\" & $parts[0] }], \"sourceUrl\": \"https://nodejs.org/download/release/\" } )"
       ]
-    },
-    "miniforgeLinuxX64WithShaBlock": {
-      "defaultRegistryUrlTemplate": "https://api.github.com/repos/conda-forge/miniforge/releases/latest",
-      "format": "json",
-      "transformTemplates": [
-        "{ \"releases\": [{ \"version\": $$.tag_name & \"@\" & $split($$.assets[name='Miniforge3-Linux-x86_64.sh'][0].digest, \":\")[1] }], \"sourceUrl\": \"https://github.com/conda-forge/miniforge\" }"
-      ]
-    },
-    "uvLinuxX64WithShaBlock": {
-      "defaultRegistryUrlTemplate": "https://api.github.com/repos/astral-sh/uv/releases/latest",
-      "format": "json",
-      "transformTemplates": [
-        "{ \"releases\": [{ \"version\": $$.tag_name & \"@\" & $split($$.assets[name='uv-x86_64-unknown-linux-gnu.tar.gz'][0].digest, \":\")[1] }], \"sourceUrl\": \"https://github.com/astral-sh/uv\" }"
-      ]
     }
   },
   "customManagers": [
@@ -117,26 +103,26 @@
       "description": "Miniforge version + sha256 (linux-x86_64 installer)",
       "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
       "matchStrings": [
-        "ARG MINIFORGE_VERSION=(?<currentVersion>\\S+)\\nARG MINIFORGE_SHA256=(?<currentHash>[a-f0-9]{64})"
+        "ARG MINIFORGE_VERSION=(?<currentValue>\\S+)\\nARG MINIFORGE_SHA256=(?<currentDigest>[a-f0-9]{64})"
       ],
-      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
-      "datasourceTemplate": "custom.miniforgeLinuxX64WithShaBlock",
+      "datasourceTemplate": "github-release-attachments",
       "depNameTemplate": "miniforge",
+      "packageNameTemplate": "conda-forge/miniforge",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG MINIFORGE_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG MINIFORGE_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG MINIFORGE_VERSION={{{newValue}}}\\nARG MINIFORGE_SHA256={{{newDigest}}}"
     },
     {
       "customType": "regex",
       "description": "uv version + sha256 (linux-x86_64 tarball)",
       "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
       "matchStrings": [
-        "ARG UV_VERSION=(?<currentVersion>\\S+)\\nARG UV_SHA256=(?<currentHash>[a-f0-9]{64})"
+        "ARG UV_VERSION=(?<currentValue>\\S+)\\nARG UV_SHA256=(?<currentDigest>[a-f0-9]{64})"
       ],
-      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
-      "datasourceTemplate": "custom.uvLinuxX64WithShaBlock",
+      "datasourceTemplate": "github-release-attachments",
       "depNameTemplate": "uv",
+      "packageNameTemplate": "astral-sh/uv",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG UV_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG UV_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG UV_VERSION={{{newValue}}}\\nARG UV_SHA256={{{newDigest}}}"
     },
     {
       "customType": "regex",
@@ -193,8 +179,7 @@
       "matchDatasources": [
         "custom.goLinuxAmd64WithShaBlock",
         "custom.nodeLtsLinuxX64WithShaBlock",
-        "custom.miniforgeLinuxX64WithShaBlock",
-        "custom.uvLinuxX64WithShaBlock"
+        "github-release-attachments"
       ],
       "matchPackageNames": ["golang", "nodejs-lts", "miniforge", "uv"],
       "groupName": "Container toolchains"

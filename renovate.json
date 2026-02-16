@@ -56,7 +56,7 @@
       "datasourceTemplate": "docker",
       "depNameTemplate": "ubuntu",
       "versioningTemplate": "docker",
-      "autoReplaceStringTemplate": "ARG UBUNTU_VERSION={{{newValue}}}\\nARG UBUNTU_DIGEST={{{newDigest}}}"
+      "autoReplaceStringTemplate": "ARG UBUNTU_VERSION={{{newValue}}}\nARG UBUNTU_DIGEST={{{newDigest}}}"
     },
     {
       "customType": "regex",
@@ -69,7 +69,7 @@
       "datasourceTemplate": "custom.vscodeCliStableWithShaBlock",
       "depNameTemplate": "vscode-cli",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG VSCODE_CLI_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{replace \"@.*\" \"\" newValue}}}\nARG VSCODE_CLI_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
     },
     {
       "customType": "regex",
@@ -82,7 +82,7 @@
       "datasourceTemplate": "custom.goLinuxAmd64WithShaBlock",
       "depNameTemplate": "golang",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG GO_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG GO_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG GO_VERSION={{{replace \"@.*\" \"\" newValue}}}\nARG GO_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
     },
     {
       "customType": "regex",
@@ -96,7 +96,7 @@
       "depNameTemplate": "nodejs-lts",
       "packageNameTemplate": "{{{currentMajor}}}",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG NODE_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG NODE_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG NODE_VERSION={{{replace \"@.*\" \"\" newValue}}}\nARG NODE_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
     },
     {
       "customType": "regex",
@@ -109,7 +109,7 @@
       "depNameTemplate": "miniforge",
       "packageNameTemplate": "conda-forge/miniforge",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG MINIFORGE_VERSION={{{newValue}}}\\nARG MINIFORGE_SHA256={{{newDigest}}}"
+      "autoReplaceStringTemplate": "ARG MINIFORGE_VERSION={{{newValue}}}\nARG MINIFORGE_SHA256={{{newDigest}}}"
     },
     {
       "customType": "regex",
@@ -122,7 +122,7 @@
       "depNameTemplate": "uv",
       "packageNameTemplate": "astral-sh/uv",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG UV_VERSION={{{newValue}}}\\nARG UV_SHA256={{{newDigest}}}"
+      "autoReplaceStringTemplate": "ARG UV_VERSION={{{newValue}}}\nARG UV_SHA256={{{newDigest}}}"
     },
     {
       "customType": "regex",
@@ -142,8 +142,7 @@
       ],
       "datasourceTemplate": "custom.vscodeCliStable",
       "depNameTemplate": "vscode-cli",
-      "versioningTemplate": "semver",
-      "autoReplaceStringTemplate": "appVersion: \"{{{ubuntuVersion}}}-vscodecli-{{{newValue}}}\""
+      "versioningTemplate": "semver"
     },
     {
       "customType": "regex",
@@ -154,8 +153,7 @@
       ],
       "datasourceTemplate": "docker",
       "depNameTemplate": "ubuntu",
-      "versioningTemplate": "docker",
-      "autoReplaceStringTemplate": "appVersion: \"{{{newValue}}}-vscodecli-{{{vscodeCliVersion}}}\""
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [

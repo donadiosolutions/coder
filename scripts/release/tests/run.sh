@@ -50,7 +50,7 @@ assert_contains "${output_md}" "## Highlights"
 assert_contains "${output_md}" "## Install"
 assert_contains "${output_md}" "## Full changelog"
 assert_contains "${output_md}" "helm repo add gpubox https://example.github.io/gpubox"
-assert_contains "${output_md}" 'This draft release prepares `v9.9.9` artifacts'
+assert_contains "${output_md}" 'This release includes `v9.9.9` artifacts'
 
 assert_succeeds "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-valid.json"
 assert_fails "${VERIFY_SCRIPT}" v9.9.9 --json-file "${FIXTURES_DIR}/release-missing-assets.json"

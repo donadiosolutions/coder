@@ -40,9 +40,9 @@ def load_changelog(notes_json_path: Path) -> str:
 
 def build_highlights(tag: str) -> list[str]:
     return [
-        f"This draft release prepares `{tag}` artifacts for the gpubox chart and runtime image.",
-        "It is intentionally created as a draft first so operators can validate assets before publishing.",
-        "Use the install instructions below and review the full changelog prior to marking this release as latest.",
+        f"This release includes `{tag}` artifacts for the gpubox chart and runtime image.",
+        "Chart package and SBOM assets are attached to support installation and verification workflows.",
+        "Use the install instructions below and review the full changelog before rollout.",
     ]
 
 

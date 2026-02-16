@@ -22,6 +22,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Path to JSON payload returned by repos.generateReleaseNotes",
     )
+    parser.add_argument(
+        "--highlights-file",
+        required=False,
+        default="",
+        help="Optional path to pre-generated markdown bullet highlights.",
+    )
     parser.add_argument("--output", required=True, help="Path to output Markdown file")
     return parser.parse_args()
 
@@ -37,6 +43,20 @@ def load_changelog(notes_json_path: Path) -> str:
             return trimmed
 
     return "_No generated changelog content was returned by GitHub._"
+
+
+def load_highlights_file(path: Path) -> list[str]:
+    if not path.is_file():
+        return []
+    bullets: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("- "):
+            continue
+        content = line[2:].strip()
+        if content:
+            bullets.append(content)
+    return bullets
 
 
 def extract_change_bullets(changelog: str, limit: int = 3) -> list[str]:
@@ -146,7 +166,14 @@ def summarize_release(titles: list[str]) -> str:
     return sentence_case(f"Release readiness: {strip_conventional_prefix(first)}")
 
 
-def build_highlights(tag: str, changelog: str) -> list[str]:
+def build_highlights(
+    tag: str,
+    changelog: str,
+    override_bullets: list[str] | None = None,
+) -> list[str]:
+    if override_bullets:
+        return override_bullets
+
     titles = extract_pr_titles(changelog)
     if not titles:
         return [f"Release `{tag}` includes updates described in the full changelog below."]
@@ -179,9 +206,10 @@ def render_body(
     image_ghcr: str,
     image_dockerhub: str,
     changelog: str,
+    override_highlights: list[str] | None = None,
 ) -> str:
     chart_version = tag[1:] if tag.startswith("v") else tag
-    highlights = build_highlights(tag, changelog)
+    highlights = build_highlights(tag, changelog, override_bullets=override_highlights)
 
     body_lines: list[str] = [
         "## Highlights",
@@ -217,6 +245,7 @@ def render_body(
 def main() -> int:
     args = parse_args()
     changelog = load_changelog(Path(args.notes_json))
+    override_highlights = load_highlights_file(Path(args.highlights_file)) if args.highlights_file else []
 
     body = render_body(
         tag=args.tag,
@@ -224,6 +253,7 @@ def main() -> int:
         image_ghcr=args.image_ghcr,
         image_dockerhub=args.image_dockerhub,
         changelog=changelog,
+        override_highlights=override_highlights,
     )
 
     output_path = Path(args.output)

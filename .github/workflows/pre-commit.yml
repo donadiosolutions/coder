@@ -24,6 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m py_compile scripts/release/generate_release_highlights_prompt.py
           python3 -m py_compile scripts/release/render_release_body.py
           bash -n scripts/release/publish.sh
           bash -n scripts/release/verify_draft.sh

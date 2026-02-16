@@ -51,14 +51,7 @@ podman build -f ./vscode/Containerfile -t ghcr.io/donadiosolutions/gpubox:dev ./
 
 ### SBOM + provenance notes
 
-This project adds OCI metadata labels in `vscode/Containerfile` (source,
-revision, created, etc.). Supply them at build time in CI to make your
-SBOM/provenance more useful.
-
-- **Docker buildx** can emit SBOM + provenance attestations during build.
-- **Podman** can generate an SBOM during build (`podman build --sbom ...`), but
-  provenance attestations are generally attached after the fact using a signing
-  tool (for example, `cosign`).
+This project publishes chart/package SBOM assets with releases.
 
 ## Deploy to Kubernetes (Helm)
 
@@ -68,10 +61,7 @@ helm upgrade --install gpubox ./charts/gpubox \
   --create-namespace
 ```
 
-### Install from the Helm repo (GitHub Pages / `gh-pages`)
-
-CI publishes a Helm chart repository to GitHub Pages (served from the `gh-pages`
-branch). Once GitHub Pages is enabled for the repo, install with:
+### Install from the Helm repo
 
 ```bash
 helm repo add gpubox https://donadiosolutions.github.io/gpubox
@@ -81,10 +71,6 @@ helm upgrade --install gpubox gpubox/gpubox \
   --namespace gpubox \
   --create-namespace
 ```
-
-If you’re installing from a fork, replace `donadiosolutions` with your GitHub
-org/user. If GitHub Pages isn’t enabled yet, go to **Settings → Pages** and set
-the source to the `gh-pages` branch (root).
 
 To pin a specific chart version:
 
@@ -99,29 +85,6 @@ List available versions with `helm search repo gpubox/gpubox --versions`.
 
 By default, the chart uses image tag `v<chart-version>` when `image.tag` is not
 set (for example, chart `1.0.0` deploys image `ghcr.io/donadiosolutions/gpubox:v1.0.0`).
-
-## Release lifecycle
-
-Tag pushes (`vX.Y.Z`) run release automation that prepares a **draft** GitHub release
-with:
-- `gpubox-<version>.tgz`
-- `gpubox-chart.sbom.spdx.json`
-- deterministic release notes with `## Highlights`, `## Install`, and
-  `## Full changelog`
-
-After draft validation, publish explicitly:
-
-```bash
-scripts/release/publish.sh vX.Y.Z
-```
-
-This command verifies draft state, required headings, and required assets before
-publishing as latest.
-
-Notes:
-- `scripts/release/publish.sh` expects `gh` and `jq` to be available on your `PATH`.
-- Draft URLs may briefly appear as `untagged-*` while GitHub updates metadata.
-- The canonical published URL format is `/releases/tag/vX.Y.Z`.
 
 ### Provide SSH authorized keys (recommended)
 
@@ -155,71 +118,10 @@ nodeSelector:
   nvidia.com/gpu.present: "true"
 ```
 
-## Development (pre-commit)
+## Contributing
 
-This repo uses `pre-commit` locally and in CI, including `gitleaks` secret
-scanning, plus basic YAML + Markdown linting.
-
-### Install pre-commit
-
-Recommended (via `pipx`):
-
-```bash
-pipx install pre-commit
-```
-
-Alternative (user install):
-
-```bash
-python3 -m pip install --user pre-commit
-# Ensure ~/.local/bin is on your PATH.
-```
-
-### Install gitleaks
-
-This repo uses the `gitleaks-system` pre-commit hook, which expects `gitleaks`
-to be available on your `PATH`.
-
-- macOS (Homebrew):
-
-```bash
-brew install gitleaks
-```
-
-- Linux (official release binary, example for x86_64):
-
-```bash
-GITLEAKS_VERSION=8.30.0
-curl -fsSL -o gitleaks.tar.gz \
-  "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-tar -xzf gitleaks.tar.gz gitleaks
-sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
-rm -f gitleaks.tar.gz gitleaks
-```
-
-- Windows:
-  - Download the `gitleaks_<version>_windows_x64.zip` asset from the GitHub
-    Releases page.
-  - Put `gitleaks.exe` somewhere on your `PATH`.
-
-### Enable the hook
-
-```bash
-pre-commit install
-```
-
-### Run on demand
-
-```bash
-pre-commit run --all-files
-```
-
-### Troubleshooting
-
-- If `pre-commit` fails with `gitleaks: command not found`, install `gitleaks`
-  and retry.
-- Emergency bypass (discouraged): `SKIP=gitleaks-system git commit ...` or
-  `SKIP=gitleaks-system pre-commit run --all-files`.
+Repository development and release-maintainer guidance lives in
+`CONTRIBUTING.md`.
 
 ## License
 

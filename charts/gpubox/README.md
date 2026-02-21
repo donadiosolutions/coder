@@ -22,6 +22,7 @@ helm upgrade --install gpubox ./charts/gpubox \
 - `containerSecurityContext.privileged=true` (default) is required for the `hostPath: /` mount.
 - `pod.hostPID=false` by default; set `pod.hostPID=true` if you need host process visibility.
 - `resources.limits.nvidia.com/gpu` controls GPU allocation.
+- `image.digest` can pin an immutable container digest (`sha256:...`) while still setting `image.tag`.
 - `persistence.home` and `persistence.transfer` configure PVC sizes and storage classes.
 - `ssh.authorizedKeys` injects `authorized_keys` into the mounted home volume via an initContainer.
 - `tolerations`, `affinity`, `nodeSelector` allow pinning to GPU nodes.

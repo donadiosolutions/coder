@@ -21,6 +21,9 @@ release with:
 
 - `gpubox-<version>.tgz`
 - `gpubox-chart.sbom.spdx.json`
+- container image metadata:
+  - if `vscode/Containerfile` changed since the previous release tag, CI rebuilds and pushes an image for the current tag
+  - otherwise, CI reuses the latest published image tag + digest in release install instructions
 - release notes with:
   - `## Highlights`: optional AI-generated bullets (via pinned
     `openai/codex-action`) when `OPENAI_API_KEY` is configured; deterministic

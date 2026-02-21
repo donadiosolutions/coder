@@ -59,8 +59,10 @@ output_md="${tmp_dir}/release-body.md"
 python3 "${RENDER_SCRIPT}" \
   --tag v9.9.9 \
   --pages-url https://example.github.io/gpubox \
-  --image-ghcr ghcr.io/example/gpubox:v9.9.9 \
-  --image-dockerhub docker.io/example/gpubox:v9.9.9 \
+  --image-ghcr ghcr.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --image-dockerhub docker.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --install-image-tag v9.9.8 \
+  --install-image-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
   --notes-json "${FIXTURES_DIR}/generated-notes.json" \
   --output "${output_md}"
 
@@ -69,7 +71,8 @@ assert_contains "${output_md}" "## Install"
 assert_contains "${output_md}" "## Full changelog"
 assert_contains "${output_md}" "helm repo add gpubox https://example.github.io/gpubox"
 assert_contains "${output_md}" "  --version 9.9.9 \\"
-assert_contains "${output_md}" "  --set image.tag=v9.9.9 \\"
+assert_contains "${output_md}" "  --set image.tag=v9.9.8 \\"
+assert_contains "${output_md}" "  --set image.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \\"
 assert_contains "${output_md}" "- Example change in #123"
 assert_order "${output_md}" "## Highlights" "## Install"
 assert_order "${output_md}" "## Install" "## Full changelog"
@@ -86,8 +89,10 @@ output_md_override="${tmp_dir}/release-body-override.md"
 python3 "${RENDER_SCRIPT}" \
   --tag v9.9.9 \
   --pages-url https://example.github.io/gpubox \
-  --image-ghcr ghcr.io/example/gpubox:v9.9.9 \
-  --image-dockerhub docker.io/example/gpubox:v9.9.9 \
+  --image-ghcr ghcr.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --image-dockerhub docker.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --install-image-tag v9.9.8 \
+  --install-image-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
   --notes-json "${FIXTURES_DIR}/generated-notes.json" \
   --highlights-file "${override_highlights}" \
   --output "${output_md_override}"
@@ -107,8 +112,10 @@ output_md_invalid="${tmp_dir}/release-body-invalid.md"
 python3 "${RENDER_SCRIPT}" \
   --tag v9.9.9 \
   --pages-url https://example.github.io/gpubox \
-  --image-ghcr ghcr.io/example/gpubox:v9.9.9 \
-  --image-dockerhub docker.io/example/gpubox:v9.9.9 \
+  --image-ghcr ghcr.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --image-dockerhub docker.io/example/gpubox:v9.9.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --install-image-tag v9.9.8 \
+  --install-image-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
   --notes-json "${FIXTURES_DIR}/generated-notes.json" \
   --highlights-file "${invalid_highlights}" \
   --output "${output_md_invalid}"

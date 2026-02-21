@@ -18,6 +18,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-ghcr", required=True, help="GHCR image reference")
     parser.add_argument("--image-dockerhub", required=True, help="Docker Hub image reference")
     parser.add_argument(
+        "--install-image-tag",
+        required=True,
+        help="Container image tag used in Helm install instructions",
+    )
+    parser.add_argument(
+        "--install-image-digest",
+        required=False,
+        default="",
+        help="Optional container image digest used in Helm install instructions",
+    )
+    parser.add_argument(
         "--notes-json",
         required=True,
         help="Path to JSON payload returned by repos.generateReleaseNotes",
@@ -205,11 +216,31 @@ def render_body(
     pages_url: str,
     image_ghcr: str,
     image_dockerhub: str,
+    install_image_tag: str,
+    install_image_digest: str,
     changelog: str,
     override_highlights: list[str] | None = None,
 ) -> str:
     chart_version = tag[1:] if tag.startswith("v") else tag
     highlights = build_highlights(tag, changelog, override_bullets=override_highlights)
+    install_lines: list[str] = [
+        "```bash",
+        f"helm repo add gpubox {pages_url}",
+        "helm repo update",
+        "",
+        "helm upgrade --install gpubox gpubox/gpubox \\",
+        f"  --version {chart_version} \\",
+        f"  --set image.tag={install_image_tag} \\",
+    ]
+    if install_image_digest:
+        install_lines.append(f"  --set image.digest={install_image_digest} \\")
+    install_lines.extend(
+        [
+            "  --namespace gpubox \\",
+            "  --create-namespace",
+            "```",
+        ]
+    )
 
     body_lines: list[str] = [
         "## Highlights",
@@ -219,16 +250,7 @@ def render_body(
         "",
         "Helm chart repo (GitHub Pages):",
         "",
-        "```bash",
-        f"helm repo add gpubox {pages_url}",
-        "helm repo update",
-        "",
-        "helm upgrade --install gpubox gpubox/gpubox \\",
-        f"  --version {chart_version} \\",
-        f"  --set image.tag={tag} \\",
-        "  --namespace gpubox \\",
-        "  --create-namespace",
-        "```",
+        *install_lines,
         "",
         "Container images:",
         "",
@@ -252,6 +274,8 @@ def main() -> int:
         pages_url=args.pages_url,
         image_ghcr=args.image_ghcr,
         image_dockerhub=args.image_dockerhub,
+        install_image_tag=args.install_image_tag,
+        install_image_digest=args.install_image_digest,
         changelog=changelog,
         override_highlights=override_highlights,
     )

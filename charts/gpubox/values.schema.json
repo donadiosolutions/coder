@@ -140,6 +140,7 @@
       "properties": {
         "home": { "type": "object" },
         "transfer": { "type": "object" },
+        "tmp": { "type": "object" },
         "hostRoot": { "type": "object" }
       }
     },

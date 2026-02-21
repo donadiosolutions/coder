@@ -106,6 +106,14 @@ PVC names.
 {{- end -}}
 {{- end -}}
 
+{{- define "gpubox.tmpClaimName" -}}
+{{- if .Values.persistence.tmp.existingClaim -}}
+{{- .Values.persistence.tmp.existingClaim -}}
+{{- else -}}
+{{- printf "%s-tmp" (include "gpubox.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 SSH authorized_keys ConfigMap name.
 */}}

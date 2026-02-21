@@ -21,9 +21,68 @@ concurrency:
 jobs:
   container-image:
     runs-on: blacksmith-8vcpu-ubuntu-2404
+    outputs:
+      containerfile_changed: ${{ steps.changes.outputs.containerfile_changed }}
+      image_tag: ${{ steps.image_ref.outputs.tag }}
+      image_digest: ${{ steps.image_ref.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect Containerfile changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          zero_sha="0000000000000000000000000000000000000000"
+          base_sha=""
+          head_sha=""
+          base_label=""
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+            base_label="pull request base"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            head_sha="$(git rev-parse HEAD)"
+            previous_tag="$(git tag -l 'v*' --sort=-version:refname | grep -Fxv "${GITHUB_REF_NAME}" | head -n 1 || true)"
+            if [[ -n "${previous_tag}" ]]; then
+              base_sha="$(git rev-list -n 1 "${previous_tag}")"
+              base_label="previous release tag (${previous_tag})"
+            fi
+          elif [[ -n "${{ github.event.before }}" && "${{ github.event.before }}" != "${zero_sha}" ]]; then
+            base_sha="${{ github.event.before }}"
+            head_sha="${GITHUB_SHA}"
+            base_label="push before SHA"
+          else
+            head_sha="$(git rev-parse HEAD)"
+            if git rev-parse "${head_sha}^" >/dev/null 2>&1; then
+              base_sha="$(git rev-parse "${head_sha}^")"
+              base_label="commit parent"
+            fi
+          fi
+
+          changed="false"
+          if [[ -z "${base_sha}" ]]; then
+            # No comparison base (for example, root commit); build defensively.
+            changed="true"
+          elif git diff --name-only "${base_sha}" "${head_sha}" -- vscode/Containerfile | grep -qx "vscode/Containerfile"; then
+            changed="true"
+          fi
+
+          echo "containerfile_changed=${changed}" >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Container Image Build Decision"
+            echo
+            echo "- Base source: \`${base_label:-<none>}\`"
+            echo "- Base SHA: \`${base_sha:-<none>}\`"
+            echo "- Head SHA: \`${head_sha:-<none>}\`"
+            echo "- \`vscode/Containerfile\` changed: \`${changed}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Set build variables
         id: vars
@@ -35,10 +94,11 @@ jobs:
           echo "docs_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}#readme" >>"$GITHUB_OUTPUT"
 
       - name: Setup Blacksmith Builder
+        if: steps.changes.outputs.containerfile_changed == 'true'
         uses: useblacksmith/setup-docker-builder@ef12d5b165b596e3aa44ea8198d8fde563eab402 # v1
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
@@ -46,7 +106,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: docker.io
@@ -55,6 +115,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
+        if: steps.changes.outputs.containerfile_changed == 'true'
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: |
@@ -67,7 +128,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build image (no push)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./vscode
@@ -85,7 +146,8 @@ jobs:
             OCI_CREATED=${{ steps.vars.outputs.created }}
 
       - name: Build and push image (SBOM + provenance)
-        if: github.event_name != 'pull_request'
+        id: build_push
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
         uses: useblacksmith/build-push-action@30c71162f16ea2c27c3e21523255d209b8b538c1 # v2
         with:
           context: ./vscode
@@ -103,6 +165,117 @@ jobs:
             OCI_DOCUMENTATION=${{ steps.vars.outputs.docs_url }}
             OCI_REVISION=${{ github.sha }}
             OCI_CREATED=${{ steps.vars.outputs.created }}
+
+      - name: Resolve latest published image tag and digest
+        id: reuse_image
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh CLI is required to resolve reusable image metadata." >&2
+            exit 1
+          fi
+
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          package_name="gpubox"
+          versions_json=""
+
+          api_paths=(
+            "orgs/${owner}/packages/container/${package_name}/versions?per_page=100"
+            "users/${owner}/packages/container/${package_name}/versions?per_page=100"
+          )
+
+          for api_path in "${api_paths[@]}"; do
+            if versions_json="$(gh api -H "Accept: application/vnd.github+json" "${api_path}" 2>/dev/null)"; then
+              break
+            fi
+          done
+
+          if [[ -z "${versions_json}" ]]; then
+            echo "Unable to query GHCR versions for ${owner}/${package_name}." >&2
+            exit 1
+          fi
+
+          selected_version="$(jq -c '
+            def tags: (.metadata.container.tags // []);
+            def has_semver_tag: any(tags[]?; test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"));
+            map(select((tags | length) > 0))
+            | (map(select(has_semver_tag)) | .[0])
+              // (map(select(any(tags[]?; . == "latest"))) | .[0])
+              // .[0]
+          ' <<<"${versions_json}")"
+
+          if [[ -z "${selected_version}" || "${selected_version}" == "null" ]]; then
+            echo "No reusable container image versions were found for ${owner}/${package_name}." >&2
+            exit 1
+          fi
+
+          resolved_tag="$(jq -r '
+            def tags: (.metadata.container.tags // []);
+            ([tags[] | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | first)
+            // ([tags[] | select(. == "latest")] | first)
+            // (tags[0] // empty)
+          ' <<<"${selected_version}")"
+
+          resolved_digest="$(jq -r '.name // .metadata.container.digest // empty' <<<"${selected_version}")"
+
+          if [[ -z "${resolved_tag}" ]]; then
+            echo "Failed to resolve a reusable image tag." >&2
+            exit 1
+          fi
+
+          if [[ ! "${resolved_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Failed to resolve a valid reusable image digest (got: ${resolved_digest})." >&2
+            exit 1
+          fi
+
+          echo "tag=${resolved_tag}" >>"$GITHUB_OUTPUT"
+          echo "digest=${resolved_digest}" >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Container Image Reuse"
+            echo
+            echo "- Reused tag: \`${resolved_tag}\`"
+            echo "- Reused digest: \`${resolved_digest}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Publish container image metadata outputs
+        id: image_ref
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ steps.changes.outputs.containerfile_changed }}" == "true" ]]; then
+            if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+              image_tag="${GITHUB_REF_NAME}"
+            else
+              image_tag="latest"
+            fi
+            image_digest="${{ steps.build_push.outputs.digest }}"
+          else
+            image_tag="${{ steps.reuse_image.outputs.tag }}"
+            image_digest="${{ steps.reuse_image.outputs.digest }}"
+          fi
+
+          if [[ -z "${image_tag}" || -z "${image_digest}" ]]; then
+            echo "Resolved image tag/digest outputs are empty." >&2
+            exit 1
+          fi
+
+          echo "tag=${image_tag}" >>"$GITHUB_OUTPUT"
+          echo "digest=${image_digest}" >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Container Image Metadata"
+            echo
+            echo "- Final tag: \`${image_tag}\`"
+            echo "- Final digest: \`${image_digest}\`"
+          } >>"$GITHUB_STEP_SUMMARY"
 
   helm-chart:
     runs-on: blacksmith-2vcpu-ubuntu-2404
@@ -242,3 +415,5 @@ jobs:
     secrets: inherit
     with:
       tag: ${{ github.ref_name }}
+      image_tag: ${{ needs.container-image.outputs.image_tag }}
+      image_digest: ${{ needs.container-image.outputs.image_digest }}

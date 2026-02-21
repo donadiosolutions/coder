@@ -21,6 +21,7 @@
       "properties": {
         "repository": { "type": "string" },
         "tag": { "type": "string" },
+        "digest": { "type": "string" },
         "pullPolicy": { "type": "string" }
       },
       "required": ["repository"]

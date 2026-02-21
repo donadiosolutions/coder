@@ -54,7 +54,8 @@ This repository contains a small “remote devbox” stack:
 ## Releases
 
 - `build.yml` runs on `main` pushes and `v*` tags, and is responsible for building/pushing:
-  - the container image to GHCR
+  - the container image to GHCR (only when `vscode/Containerfile` changes)
+    - when `vscode/Containerfile` is unchanged, CI reuses the latest published image tag+digest metadata
   - the Helm chart package + SBOM, and publishing the Helm repo to `gh-pages`
 - For `v*` tag pushes, `build.yml` calls `release.yml` after successful build jobs.
 - `release.yml` creates/updates a **draft** GitHub Release for that tag.
@@ -99,7 +100,8 @@ the publish script verifies readiness before publishing.
 ## Version bump checklist
 
 - Chart release version:
-  - Keep `charts/gpubox/Chart.yaml:version` aligned with release tag and image tag (`vX.Y.Z`).
+  - Keep `charts/gpubox/Chart.yaml:version` aligned with the release tag (`vX.Y.Z`).
+  - If `vscode/Containerfile` is unchanged, release notes will reference a reused prior image tag+digest.
 - VS Code CLI:
   - Update `VSCODE_CLI_VERSION` and `VSCODE_CLI_SHA256` in `vscode/Containerfile`.
   - Keep `charts/gpubox/Chart.yaml:appVersion` aligned with the container runtime stack versioning scheme.

@@ -75,6 +75,19 @@ Defaults to release-style v<Chart.Version> when values.image.tag is unset.
 {{- end -}}
 
 {{/*
+Application image reference.
+When values.image.digest is set, render <repository>:<tag>@<digest>.
+*/}}
+{{- define "gpubox.imageRef" -}}
+{{- $tag := include "gpubox.imageTag" . -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s:%s@%s" .Values.image.repository $tag .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 PVC names.
 */}}
 {{- define "gpubox.homeClaimName" -}}

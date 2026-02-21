@@ -7,6 +7,14 @@ on:
         description: Release tag (for example, v1.2.3)
         required: true
         type: string
+      image_tag:
+        description: Container image tag to install/reference.
+        required: true
+        type: string
+      image_digest:
+        description: Container image digest (sha256:...) to install/reference.
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -176,14 +184,18 @@ jobs:
           owner="${GITHUB_REPOSITORY_OWNER}"
           repo="${GITHUB_REPOSITORY#*/}"
           pages_url="https://${owner}.github.io/${repo}"
-          image_ghcr="ghcr.io/${owner}/gpubox:${{ inputs.tag }}"
-          image_dockerhub="docker.io/bcdonadio/gpubox:${{ inputs.tag }}"
+          image_tag="${{ inputs.image_tag }}"
+          image_digest="${{ inputs.image_digest }}"
+          image_ghcr="ghcr.io/${owner}/gpubox:${image_tag}@${image_digest}"
+          image_dockerhub="docker.io/bcdonadio/gpubox:${image_tag}@${image_digest}"
 
           render_args=(
             --tag "${{ inputs.tag }}"
             --pages-url "${pages_url}"
             --image-ghcr "${image_ghcr}"
             --image-dockerhub "${image_dockerhub}"
+            --install-image-tag "${image_tag}"
+            --install-image-digest "${image_digest}"
             --notes-json generated-notes.json
             --output release-body.md
           )

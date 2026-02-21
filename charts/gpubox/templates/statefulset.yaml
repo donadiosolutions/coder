@@ -121,6 +121,11 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "gpubox.transferClaimName" . }}
         {{- end }}
+        {{- if .Values.persistence.tmp.enabled }}
+        - name: tmp
+          persistentVolumeClaim:
+            claimName: {{ include "gpubox.tmpClaimName" . }}
+        {{- end }}
         {{- if .Values.persistence.hostRoot.enabled }}
         - name: host-root
           hostPath:
@@ -180,6 +185,11 @@ spec:
             - name: transfer
               mountPath: {{ .Values.persistence.transfer.mountPath | quote }}
               readOnly: {{ .Values.persistence.transfer.readOnly }}
+            {{- end }}
+            {{- if .Values.persistence.tmp.enabled }}
+            - name: tmp
+              mountPath: {{ .Values.persistence.tmp.mountPath | quote }}
+              readOnly: {{ .Values.persistence.tmp.readOnly }}
             {{- end }}
             {{- if .Values.persistence.hostRoot.enabled }}
             - name: host-root

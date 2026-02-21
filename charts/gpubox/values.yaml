@@ -153,6 +153,18 @@ persistence:
     size: 200Gi
     mountPath: /transfer
     readOnly: false
+  tmp:
+    enabled: true
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+    storageClass: block
+    accessModes:
+      - ReadWriteOnce
+    volumeMode: Filesystem
+    size: 150Gi
+    mountPath: /tmp
+    readOnly: false
   hostRoot:
     enabled: true
     hostPath: /
